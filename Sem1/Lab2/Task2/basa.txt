@@ -1,0 +1,4 @@
+Khodko: 20: 150:male
+Sidorov: 22: 50:male
+Anishkevich: 21: 70:female
+Nikanorova: 19: 50:female
