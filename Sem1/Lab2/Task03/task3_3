@@ -1,0 +1,47 @@
+# Задание 3.3 — демонстрация запуска скрипта из стандартной директории ~/bin
+SCRIPT_NAME="hello_std.sh"
+TARGET_DIR="$HOME/bin"
+FULL_PATH="$TARGET_DIR/$SCRIPT_NAME"
+echo "=== task3_3: скрипт в стандартной директории ~/bin ==="
+echo ""
+# 1. Создаём ~/bin, если её нет
+if [ ! -d "$TARGET_DIR" ]; then
+    echo "Создаю директорию $TARGET_DIR"
+    mkdir -p "$TARGET_DIR"
+fi
+# 2. Создаём сам скрипт
+cat > "$FULL_PATH" << 'EOF'
+# hello_std.sh — скрипт в стандартной директории ~/bin
+echo "Привет! Я hello_std.sh"
+echo "Меня запустили из: $(pwd)"
+echo "Я сам лежу в: $(dirname "$(readlink -f "$0")")"
+echo "Пользователь: $(whoami)"
+echo "Дата: $(date)"
+EOF
+chmod +x "$FULL_PATH"
+echo "Создан: $FULL_PATH"
+echo ""
+# 3. Проверяем, что ~/bin в PATH
+if [[ ":$PATH:" != *":$TARGET_DIR:"* ]]; then
+    echo "ВНИМАНИЕ: $TARGET_DIR отсутствует в PATH."
+    echo "Добавляю в текущую сессию..."
+    export PATH="$TARGET_DIR:$PATH"
+    echo "Чтобы сохранить навсегда, добавь в ~/.bashrc:"
+    echo "    export PATH=\"\$HOME/bin:\$PATH\""
+    echo ""
+fi
+echo "Текущий PATH (начало): $(echo $PATH | cut -d: -f1)"
+echo ""
+# 4. Запускаем из разных мест
+echo " - Запуск из домашней директории"
+cd "$HOME"
+"$SCRIPT_NAME"
+echo ""
+echo " - Запуск из /tmp"
+cd /tmp
+"$SCRIPT_NAME"
+echo ""
+echo " - Запуск из директории лабораторной "
+cd ~/linux-labs/Sem1/Lab2/Task03
+"$SCRIPT_NAME"
+echo ""
