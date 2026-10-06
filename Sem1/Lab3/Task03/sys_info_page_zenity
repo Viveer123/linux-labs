@@ -1,0 +1,171 @@
+#!/bin/bash
+PROGNAME=$(basename "$0")
+TITLE="System Information Report For $HOSTNAME"
+CURRENT_TIME=$(date +"%x %r %Z")
+TIME_STAMP="Generated $CURRENT_TIME, by $USER"
+
+report_uptime() {
+    cat <<- _EOF_
+	<H2>System Uptime</H2>
+	<PRE>$(uptime)</PRE>
+_EOF_
+    return
+}
+
+report_disk_space() {
+    cat <<- _EOF_
+	<H2>Disk Space Utilization</H2>
+	<PRE>$(df -h)</PRE>
+_EOF_
+    return
+}
+
+report_home_space() {
+    local format="%8s%10s%10s\n"
+    local i dir_list total_files total_dirs total_size user_name
+    if [[ $(id -u) -eq 0 ]]; then
+        dir_list=/home/*
+        user_name="All Users"
+    else
+        dir_list=$HOME
+        user_name=$USER
+    fi
+    echo "<H2>Home Space Utilization ($user_name)</H2>"
+    for i in $dir_list; do
+        total_files=$(find "$i" -type f 2>/dev/null | wc -l)
+        total_dirs=$(find "$i" -type d 2>/dev/null | wc -l)
+        total_size=$(du -sh "$i" 2>/dev/null | cut -f 1)
+        echo "<H3>$i</H3>"
+        echo "<PRE>"
+        printf "$format" "Dirs" "Files" "Size"
+        printf "$format" "----" "----" "----"
+        printf "$format" "$total_dirs" "$total_files" "$total_size"
+        echo "</PRE>"
+    done
+    return
+}
+
+write_html_page() {
+    cat <<- _EOF_
+	<HTML>
+	<HEAD>
+	<TITLE>$TITLE</TITLE>
+	</HEAD>
+	<BODY>
+	<H1>$TITLE</H1>
+	<P>$TIME_STAMP</P>
+	$(report_uptime)
+	$(report_disk_space)
+	$(report_home_space)
+	</BODY>
+	</HTML>
+_EOF_
+    return
+}
+
+ask_output_file() {
+    zenity --file-selection --save \
+           --title="Сохранить отчёт как..." \
+           --filename="$HOME/sys_info_page.html" \
+           --file-filter="HTML files | *.html"
+}
+
+show_menu() {
+    zenity --list \
+           --title="System Information Report" \
+           --text="Выберите элементы из списка:" \
+           --column="№" --column="Action" \
+           --height=350 --width=500 \
+           1 "Report uptime" \
+           2 "Report a disk space" \
+           3 "Report home space" \
+           4 "usage" \
+           5 "View all the information" \
+           6 "EXIT"
+}
+
+OUTFILE=$(ask_output_file)
+if [[ -z "$OUTFILE" ]]; then
+    echo "Файл не выбран. Выход."
+    exit 0
+fi
+
+echo "Отчёт будет сохранён в: $OUTFILE"
+
+while true; do
+    CHOICE=$(show_menu)
+
+    if [[ -z "$CHOICE" ]]; then
+        echo "Выход."
+        break
+    fi
+
+    case "$CHOICE" in
+        1)
+            {
+                echo "<HTML><HEAD><TITLE>$TITLE</TITLE></HEAD><BODY>"
+                echo "<H1>$TITLE</H1><P>$TIME_STAMP</P>"
+                report_uptime
+                echo "</BODY></HTML>"
+            } > "$OUTFILE"
+            zenity --info --title="Готово" \
+                   --text="Отчёт сохранён:\n$OUTFILE" --timeout=2
+            ;;
+        2)
+            {
+                echo "<HTML><HEAD><TITLE>$TITLE</TITLE></HEAD><BODY>"
+                echo "<H1>$TITLE</H1><P>$TIME_STAMP</P>"
+                report_disk_space
+                echo "</BODY></HTML>"
+            } > "$OUTFILE"
+            zenity --info --title="Готово" \
+                   --text="Отчёт сохранён:\n$OUTFILE" --timeout=2
+            ;;
+        3)
+            {
+                echo "<HTML><HEAD><TITLE>$TITLE</TITLE></HEAD><BODY>"
+                echo "<H1>$TITLE</H1><P>$TIME_STAMP</P>"
+                report_home_space
+                echo "</BODY></HTML>"
+            } > "$OUTFILE"
+            zenity --info --title="Готово" \
+                   --text="Отчёт сохранён:\n$OUTFILE" --timeout=2
+            ;;
+        4)
+            zenity --info --title="Usage" \
+                   --text="Использование:\n\n  $PROGNAME\n\nВывод сохраняется в HTML-файл."
+            continue
+            ;;
+        5)
+            write_html_page > "$OUTFILE"
+            zenity --info --title="Готово" \
+                   --text="Полный отчёт сохранён:\n$OUTFILE" --timeout=2
+            ;;
+        6)
+            echo "Программа завершена."
+            break
+            ;;
+        *)
+            echo "Неизвестный выбор: $CHOICE" >&2
+            ;;
+    esac
+
+            if [[ -f "$OUTFILE" ]]; then
+        echo "Открываю: $OUTFILE"
+        if command -v cmd.exe &>/dev/null; then
+            cmd.exe /c start "" "$(wslpath -w "$OUTFILE")" >/dev/null 2>&1
+        elif command -v wslview &>/dev/null; then
+            wslview "$OUTFILE" &
+        else
+            echo "Открой вручную:"
+            echo "  wslview $OUTFILE"
+            echo "  или: explorer.exe \"\\\\wsl.localhost\\Ubuntu\\home\\user\""
+        fi
+    fi
+
+
+
+done
+
+exit 0
+
