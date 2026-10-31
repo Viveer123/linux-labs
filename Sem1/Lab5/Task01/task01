@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# task01 — Задание 1: архивация, сжатие, перенос и распаковка проекта
+# ИЗМЕНЕНО: добавлен shebang и set -euo pipefail для надёжности
+set -euo pipefail
+
+# ИЗМЕНЕНО: путь к исходному проекту можно передать аргументом,
+# по умолчанию берём Sem1/Lab3 (проект с предыдущей лабораторной (не считая лабы по администрированию))
+SRC_DIR="${1:-$HOME/linux-labs/Sem1/Lab3}"
+
+# ИЗМЕНЕНО: "другое пространство имён" — временный каталог в /tmp
+DST_DIR="/tmp/linux-labs-task01"
+ARCHIVE_NAME="task01_archive.tar"
+COMPRESSED_NAME="task01_archive.tar.gz"
+
+echo "[+] Исходный проект: $SRC_DIR"
+if [ ! -d "$SRC_DIR" ]; then
+  echo "Ошибка: каталог $SRC_DIR не найден" >&2
+  exit 1
+fi
+
+# очистка прошлых запусков
+rm -rf "$DST_DIR"
+mkdir -p "$DST_DIR/unpacked_archive" "$DST_DIR/unpacked_compressed"
+
+# ИЗМЕНЕНО: создаём tar-архив относительно родительского каталога,
+# чтобы в архив не попал абсолютный путь
+PARENT_DIR="$(dirname "$SRC_DIR")"
+BASE_NAME="$(basename "$SRC_DIR")"
+
+echo "[+] Создание tar-архива..."
+tar -cf "$DST_DIR/$ARCHIVE_NAME" -C "$PARENT_DIR" "$BASE_NAME"
+
+echo "[+] Размер исходного каталога:"
+du -sh "$SRC_DIR"
+
+echo "[+] Размер tar-архива:"
+ls -lh "$DST_DIR/$ARCHIVE_NAME"
+stat -c '  %n: %s байт' "$DST_DIR/$ARCHIVE_NAME"
+
+echo "[+] Перенос архива в другое пространство имён: $DST_DIR"
+# архив уже создан в DST_DIR, это и есть перенос
+
+echo "[+] Распаковка tar-архива..."
+tar -xf "$DST_DIR/$ARCHIVE_NAME" -C "$DST_DIR/unpacked_archive"
+
+echo "[+] Сравнение размеров после распаковки tar:"
+du -sh "$SRC_DIR" "$DST_DIR/unpacked_archive/$BASE_NAME"
+
+echo
+echo "[+] Создание сжатого архива (gzip)..."
+tar -czf "$DST_DIR/$COMPRESSED_NAME" -C "$PARENT_DIR" "$BASE_NAME"
+
+echo "[+] Размер сжатого архива:"
+ls -lh "$DST_DIR/$COMPRESSED_NAME"
+stat -c '  %n: %s байт' "$DST_DIR/$COMPRESSED_NAME"
+
+echo "[+] Распаковка сжатого архива..."
+tar -xzf "$DST_DIR/$COMPRESSED_NAME" -C "$DST_DIR/unpacked_compressed"
+
+echo "[+] Сравнение размеров после распаковки сжатого архива:"
+du -sh "$SRC_DIR" "$DST_DIR/unpacked_compressed/$BASE_NAME"
+
+echo
+echo "[+] Итоговое сравнение:"
+echo "Исходный каталог:"
+du -sh "$SRC_DIR"
+echo "tar-архив:"
+du -h "$DST_DIR/$ARCHIVE_NAME"
+echo "tar.gz-архив:"
+du -h "$DST_DIR/$COMPRESSED_NAME"
+
+# ИЗМЕНЕНО: если есть SSH, можно раскомментировать сетевой вариант:
+# scp "$DST_DIR/$COMPRESSED_NAME" user@remote:/tmp/
+# ssh user@remote "mkdir -p /tmp/task01 && tar -xzf /tmp/$COMPRESSED_NAME -C /tmp/task01"
