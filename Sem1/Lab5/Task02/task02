@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# task02 — Задание 2: упаковка и сжатие проекта, перенос в другое
+# пространство имён, распаковка и сравнение с результатами Task01
+# ИЗМЕНЕНО: добавлен shebang и set -euo pipefail для надёжности
+set -euo pipefail
+
+# ИЗМЕНЕНО: путь к исходному проекту можно передать аргументом,
+# по умолчанию берём Sem1/Lab3 (проект с прошлой лабы (не считая администрирования))
+SRC_DIR="${1:-$HOME/linux-labs/Sem1/Lab4}"
+
+# ИЗМЕНЕНО: "другое пространство имён" — временный каталог в /tmp,
+# отдельный от Task01, чтобы результаты не пересекались
+DST_DIR="/tmp/linux-labs-task02"
+ARCHIVE_NAME="task02_archive.tar"
+COMPRESSED_NAME="task02_archive.tar.gz"
+
+# ИЗМЕНЕНО: путь к результатам Task01 для сравнения
+TASK01_DIR="/tmp/linux-labs-task01"
+
+echo "[+] Исходный проект: $SRC_DIR"
+if [ ! -d "$SRC_DIR" ]; then
+  echo "Ошибка: каталог $SRC_DIR не найден" >&2
+  exit 1
+fi
+
+# очистка прошлых запусков
+rm -rf "$DST_DIR"
+mkdir -p "$DST_DIR/unpacked_compressed"
+
+PARENT_DIR="$(dirname "$SRC_DIR")"
+BASE_NAME="$(basename "$SRC_DIR")"
+
+echo
+echo "[+] Шаг 1. Упаковка проекта в tar (без сжатия)..."
+tar -cf "$DST_DIR/$ARCHIVE_NAME" -C "$PARENT_DIR" "$BASE_NAME"
+
+echo "[+] Размер tar-архива:"
+ls -lh "$DST_DIR/$ARCHIVE_NAME"
+stat -c '  %n: %s байт' "$DST_DIR/$ARCHIVE_NAME"
+
+echo
+echo "[+] Шаг 2. Сжатие проекта в tar.gz..."
+tar -czf "$DST_DIR/$COMPRESSED_NAME" -C "$PARENT_DIR" "$BASE_NAME"
+
+echo "[+] Размер tar.gz-архива:"
+ls -lh "$DST_DIR/$COMPRESSED_NAME"
+stat -c '  %n: %s байт' "$DST_DIR/$COMPRESSED_NAME"
+
+echo
+echo "[+] Шаг 3. Перенос сжатой версии в другое пространство имён: $DST_DIR"
+# сжатый архив уже создан в DST_DIR — это и есть перенос
+
+echo
+echo "[+] Шаг 4. Распаковка сжатого архива..."
+tar -xzf "$DST_DIR/$COMPRESSED_NAME" -C "$DST_DIR/unpacked_compressed"
+
+echo "[+] Сравнение размеров после распаковки:"
+du -sh "$SRC_DIR" "$DST_DIR/unpacked_compressed/$BASE_NAME"
+
+echo
+echo "[+] Шаг 5. Сравнение с результатами предыдущих заданий:"
+echo "--- Исходный каталог ---"
+du -sh "$SRC_DIR"
+echo "--- Task02: tar ---"
+du -h "$DST_DIR/$ARCHIVE_NAME"
+echo "--- Task02: tar.gz ---"
+du -h "$DST_DIR/$COMPRESSED_NAME"
+
+if [ -d "$TASK01_DIR" ]; then
+  echo "--- Task01: tar ---"
+  if [ -f "$TASK01_DIR/task01_archive.tar" ]; then
+    du -h "$TASK01_DIR/task01_archive.tar"
+  else
+    echo "  (task01_archive.tar не найден)"
+  fi
+  echo "--- Task01: tar.gz ---"
+  if [ -f "$TASK01_DIR/task01_archive.tar.gz" ]; then
+    du -h "$TASK01_DIR/task01_archive.tar.gz"
+  else
+    echo "  (task01_archive.tar.gz не найден)"
+  fi
+else
+  echo "  (каталог Task01 не найден, сначала выполните Task01)"
+fi
+
+# ИЗМЕНЕНО: если есть SSH, можно раскомментировать сетевой вариант:
+# scp "$DST_DIR/$COMPRESSED_NAME" user@remote:/tmp/
+# ssh user@remote "mkdir -p /tmp/task02 && tar -xzf /tmp/$COMPRESSED_NAME -C /tmp/task02"
