@@ -1,0 +1,108 @@
+--- task2.c	2026-11-21 02:29:02.500022833 +0300
++++ task2_1.c	2026-11-21 02:33:34.814241301 +0300
+@@ -23,6 +23,72 @@
+     exit(retcode);
+ }
+ 
++void abook_delete(void) {
++    char find_buffer[NAME_LENGTH];
++    char tfile[] = "/tmp/abook-XXXXXX";
++    char ch;
++
++    // ИЗМЕНЕНО: создаём безопасный временный файл.
++    int tfd = mkstemp(tfile);
++
++    if (tfd == -1) {
++        fprintf(stderr, "mkstemp() error\n");
++        exit(1);
++    }
++
++    // ИЗМЕНЕНО: удаляем имя файла, дескриптор остаётся рабочим.
++    unlink(tfile);
++
++    printf("Name: ");
++    scanf("%49s", find_buffer);
++
++    int fd = open(ABOOK_FNAME, O_RDONLY);
++
++    if (fd == -1) {
++        close(tfd);
++        abook_failed(1);
++    }
++
++    int found = 0;
++
++    while (readv(fd, ab_entry, 3) > 0) {
++        if (!strcmp(find_buffer, ab_entry[0].iov_base)) {
++            printf("Delete: %s\n", ab_entry[0].iov_base);
++
++            // ИЗМЕНЕНО: найденная запись не копируется.
++            found = 1;
++            continue;
++        }
++
++        writev(tfd, ab_entry, 3);
++    }
++
++    if (!found) {
++        printf("Name '%s' hasn't found\n", find_buffer);
++    }
++
++    // Перемещаемся в начало временного файла.
++    lseek(tfd, 0, SEEK_SET);
++
++    close(fd);
++
++    // ИЗМЕНЕНО: повторно используем fd,
++    // очищая старую адресную книгу.
++    fd = open(ABOOK_FNAME, O_WRONLY | O_TRUNC);
++
++    if (fd == -1) {
++        close(tfd);
++        abook_failed(1);
++    }
++
++    while (read(tfd, &ch, 1) > 0) {
++        write(fd, &ch, 1);
++    }
++
++    close(fd);
++    close(tfd);
++}
++
+ void abook_add(void) {
+     printf("Name: ");
+     scanf("%49s", ab_entry[0].iov_base);
+@@ -64,13 +130,12 @@
+         if (!strcmp(find_buffer, ab_entry[0].iov_base)) {
+             printf("Phone: %s\n", ab_entry[1].iov_base);
+             printf("E-mail: %s\n", ab_entry[2].iov_base);
+-            goto close_file;
++            close(fd);
++            return;
+         }
+     }
+ 
+     printf("Name '%s' hasn't found\n", find_buffer);
+-
+-close_file:
+     close(fd);
+ }
+ 
+@@ -95,9 +160,14 @@
+     else if (!strcmp(argv[1], "find")) {
+         abook_find();
+     }
++    else if (!strcmp(argv[1], "delete")) {
++        abook_delete();
++    }
+     else {
+-        fprintf(stderr, "%s: unknown command\n"
+-                "Usage: abook { add, find }\n", argv[1]);
++        fprintf(stderr,
++                "%s: unknown command\n"
++                "Usage: abook { add, find, delete }\n",
++                argv[1]);
+         return 1;
+     }
+ 
